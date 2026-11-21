@@ -70,3 +70,34 @@ jobs:
       - name: What happened (Kubernetes events)
         if: always()
         run: kubectl --context "kind-$CLUSTER" events | tail -25 || true
+
+  # The same game on GitHub Pages - for a computer without Python or Docker.
+  # Pages only serves files, so there is no server: the page's PAGES switch is turned on,
+  # and the same rules (board.py) run in Python inside the browser, with Pyodide.
+  pages:
+    if: github.ref == 'refs/heads/main'
+    needs: pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Build the site - the page and board.py
+        run: |
+          mkdir _site
+          sed 's/^  const PAGES = false;/  const PAGES = true;/' static/index.html > _site/index.html
+          grep -q "const PAGES = true" _site/index.html
+          cp board.py _site/
+
+      - uses: actions/upload-pages-artifact@v3
+
+      - name: Publish it
+        id: deploy
+        uses: actions/deploy-pages@v4

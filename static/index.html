@@ -34,10 +34,47 @@
                   128: "#edcf72", 256: "#edcc61", 512: "#edc850", 1024: "#edc53f", 2048: "#edc22e", 4096: "#3c3a32"};
   let game = null;
 
+  // On GitHub Pages there is no server: the Pages build sets PAGES = true, and the same rules
+  // (board.py) run in Python inside the browser, with Pyodide. Everywhere else: the server.
+  const PAGES = false;
+
   async function api(path, body) {
+    if (PAGES) return pagesApi(path, body || {});
     const response = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
                                         body: JSON.stringify(body || {})});
     return response.json();
+  }
+
+  let python = null;
+  async function pagesApi(path, body) {
+    if (!python) {
+      document.getElementById("message").textContent = "loading Python...";
+      await new Promise((ok, fail) => { const s = document.createElement("script"); s.onload = ok; s.onerror = fail;
+        s.src = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"; document.head.appendChild(s); });
+      python = await loadPyodide();
+      python.FS.writeFile("board.py", await (await fetch("board.py")).text());
+      python.runPython(`
+import json
+import board as rules
+
+def state(board, score, moved=True):     # the same answer as the server's game_state()
+    return json.dumps({"board": board, "score": score, "moved": moved,
+                       "won": rules.has_won(board), "game_over": not rules.can_move(board)})
+
+def new_game():
+    return state(rules.new_board(), 0)
+
+def make_move(request):
+    request = json.loads(request)
+    board, points, moved = rules.move(request["board"], request["direction"])
+    if moved:
+        board = rules.add_tile(board)
+    return state(board, request["score"] + points, moved)
+`);
+    }
+    const answer = path.endsWith("/api/new") ? python.globals.get("new_game")()
+                                             : python.globals.get("make_move")(JSON.stringify(body));
+    return JSON.parse(answer);
   }
   function draw() {
     const grid = document.getElementById("grid");
@@ -67,6 +104,10 @@
 
   // which version, which copy and which machine answered - asked again every second
   async function info() {
+    if (PAGES) {
+      document.getElementById("info").textContent = "GitHub Pages  ·  the rules run in Python, in your browser";
+      return;
+    }
     try {
       const [version, color, pod, node] = (await (await fetch("plain", {cache: "no-store"})).text()).trim().split(" ");
       document.body.style.setProperty("--color", color);
@@ -75,7 +116,7 @@
       document.getElementById("info").textContent = "no answer from the server";
     }
   }
-  info(); setInterval(info, 1000);
+  info(); if (!PAGES) setInterval(info, 1000);
   newGame();
 </script>
 </body>

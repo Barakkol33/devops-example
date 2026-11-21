@@ -46,6 +46,10 @@ scripts/
 
 **The server keeps nothing between moves.** The page sends the board with every move, and the server answers with the new board. So any copy of the server can answer any request - that's what lets Kubernetes run many copies behind one address, and replace one that dies, without anyone losing their game.
 
+## Play it online - no Python needed
+
+**[barakkol33.github.io/devops-example](https://barakkol33.github.io/devops-example/)** - the same page and the same rules (`board.py`), published by the pipeline on every push to `main`. GitHub Pages only serves files, so there is no server there: the rules run in Python inside your browser, with [Pyodide](https://pyodide.org/). The first move takes a few seconds while Python loads.
+
 ## Run it as a Python project
 
 You need Python 3.11+.
