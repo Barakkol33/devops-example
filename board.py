@@ -14,7 +14,7 @@ a new tile (usually a 2, sometimes a 4) appears in a random empty cell.
 import random
 
 SIZE = 4            # the board is SIZE x SIZE
-START_TILES = 2     # how many tiles a new game starts with
+START_TILES = 4     # how many tiles a new game starts with
 WINNING_TILE = 2048
 DIRECTIONS = ("left", "right", "up", "down")
 
