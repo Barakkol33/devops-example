@@ -1,0 +1,13 @@
+# The load balancer: one address for every player, in front of all the copies.
+apiVersion: v1
+kind: Service
+metadata:
+  name: game
+spec:
+  type: NodePort
+  selector:
+    app: game
+  ports:
+    - port: 80
+      targetPort: 8000
+      nodePort: 30080               # reached from the laptop through kind-cluster.yaml's port mapping

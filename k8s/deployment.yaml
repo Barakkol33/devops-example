@@ -1,0 +1,69 @@
+# The wish: "always keep 3 copies of the game running". Kubernetes makes it true, and keeps it true.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game
+spec:
+  replicas: 3                       # how many copies
+  selector:
+    matchLabels:
+      app: game
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0             # a new version: never go below 3 ready copies
+      maxSurge: 1                   # start one new copy at a time
+  template:
+    metadata:
+      labels:
+        app: game
+    spec:
+      terminationGracePeriodSeconds: 10
+      # high availability: spread the copies over the machines, so losing one machine never loses all of them
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          nodeTaintsPolicy: Honor        # ignore machines that can't take copies (the brain, or one that's down)
+          labelSelector:
+            matchLabels:
+              app: game
+      # if a machine disappears, move its copies elsewhere after 5s (the default is 5 minutes)
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 5
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 5
+      containers:
+        - name: web
+          image: game-site:v1         # the pipeline (scripts/deploy.sh) puts the new image here
+          imagePullPolicy: Never      # the image is loaded onto the machines - nothing to download
+          ports:
+            - containerPort: 8000
+          env:                        # the version is inside the image; these say who answered
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          readinessProbe:             # "are you ready for players?" - asked every second
+            httpGet:
+              path: /healthz
+              port: 8000
+            periodSeconds: 1
+          lifecycle:
+            preStop:                  # finish in-flight requests before shutting down
+              exec:
+                command: ["sleep", "3"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi

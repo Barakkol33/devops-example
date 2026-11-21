@@ -1,0 +1,72 @@
+# CI/CD: every push and every pull request goes through the same pipeline as on the laptop
+# (scripts/pipeline.sh) - in a real Kubernetes cluster that GitHub starts for this run.
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write          # push the released image to GitHub's registry (ghcr.io)
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    env:
+      CLUSTER: devops-example
+      IMAGE: ghcr.io/${{ github.repository_owner }}/devops-example
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}   # a pull request: its own commit
+
+      - name: Start a Kubernetes cluster (kind)
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: devops-example
+          config: k8s/kind-cluster.yaml
+
+      - name: Log in to GitHub's image registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy the version that is live now (the last release)
+        run: |
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          if ! docker pull -q "$IMAGE:latest"; then
+            echo "no release yet - this will be the first one"
+          else
+            scripts/deploy.sh "$IMAGE:latest"
+            if kubectl --context "kind-$CLUSTER" rollout status deployment/game --timeout=120s; then
+              for i in $(seq 1 20); do live=$(curl -s --max-time 2 http://localhost:8085/plain) && [ -n "$live" ] && break; sleep 1; done
+              echo "live now: $live"
+            else
+              echo "the last release doesn't start with today's Kubernetes files - starting fresh"
+              kubectl --context "kind-$CLUSTER" delete deployment/game
+            fi
+          fi
+
+      - name: Pipeline - build, test, deploy, verify (and roll back if it fails)
+        run: |
+          export IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          scripts/pipeline.sh
+
+      - name: Release - push the new image (main only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          read -r VERSION _ < VERSION
+          docker tag "$IMAGE:$VERSION" "$IMAGE:latest"
+          docker push -q "$IMAGE:$VERSION"
+          docker push -q "$IMAGE:latest"
+          echo "released $IMAGE:$VERSION - anyone can run it: docker run -p 8000:8000 $IMAGE:$VERSION"
+
+      - name: What happened (Kubernetes events)
+        if: always()
+        run: kubectl --context "kind-$CLUSTER" events | tail -25 || true

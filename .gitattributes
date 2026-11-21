@@ -1,0 +1,2 @@
+# scripts and config must keep Unix line endings to run in WSL / Linux / macOS / Docker / GitHub Actions
+* text=auto eol=lf
