@@ -1,0 +1,5 @@
+# pytest's settings: find the code (main.py, board.py) in the project's folder, and the tests in tests/
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]   # warnings from the libraries, not from our code

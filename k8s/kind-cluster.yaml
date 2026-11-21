@@ -1,0 +1,13 @@
+# A 3-machine Kubernetes cluster that runs inside Docker - on your laptop, or in GitHub Actions.
+# One "brain" (control-plane) and two machines that run the game (workers).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: devops-example
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # http://localhost:8085 -> the game's Service inside the cluster
+      - containerPort: 30080
+        hostPort: 8085
+  - role: worker
+  - role: worker
