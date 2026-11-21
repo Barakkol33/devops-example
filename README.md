@@ -48,7 +48,7 @@ scripts/
 
 ## Play it online - no Python needed
 
-**[barakkol33.github.io/devops-example](https://barakkol33.github.io/devops-example/)** - the same page and the same rules (`board.py`), published by the pipeline on every push to `main`. GitHub Pages only serves files, so there is no server there: the rules run in Python inside your browser, with [Pyodide](https://pyodide.org/). The first move takes a few seconds while Python loads.
+**[barakkol33.github.io/devops-example](https://barakkol33.github.io/devops-example/)** - the same page and the same rules (`board.py`, from v1 - the 4x4 board), published by the pipeline on every push to `main`. GitHub Pages only serves files, so there is no server there: the rules run in Python inside your browser, with [Pyodide](https://pyodide.org/). The first move takes a few seconds while Python loads.
 
 ## Run it as a Python project
 

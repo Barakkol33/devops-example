@@ -88,13 +88,16 @@ jobs:
     steps:
       - name: Get the code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # with the tags: the site uses v1's rules
 
-      - name: Build the site - the page and board.py
+      - name: Build the site - the page, and v1's board.py (the 4x4 board)
         run: |
           mkdir _site
           sed 's/^  const PAGES = false;/  const PAGES = true;/' static/index.html > _site/index.html
           grep -q "const PAGES = true" _site/index.html
-          cp board.py _site/
+          git show v1:board.py > _site/board.py
+          grep -q "^SIZE = 4 " _site/board.py
 
       - uses: actions/upload-pages-artifact@v3
 
