@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+         font-family: system-ui, sans-serif; background: #faf8ef; color: #776e65; }
+  header { display: flex; gap: 24px; align-items: center; margin: 24px 0 16px; }
+  h1 { font-size: 56px; margin: 0; }
+  .score { background: #bbada0; color: #fff; padding: 8px 18px; border-radius: 6px; font-size: 20px; }
+  button { font-size: 18px; padding: 10px 16px; border: 0; border-radius: 6px; background: #8f7a66; color: #fff; cursor: pointer; }
+  #grid { display: grid; gap: 10px; padding: 10px; background: #bbada0; border-radius: 8px; touch-action: none; }
+  .cell { width: 80px; height: 80px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+          font-size: 32px; font-weight: 700; background: #cdc1b4; }
+  #message { height: 32px; margin: 12px; font-size: 24px; font-weight: 700; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px; text-align: center; color: #fff;
+           background: var(--color, #1f6feb); }
+</style>
+</head>
+<body>
+<header>
+  <h1>2048</h1>
+  <div class="score">score <b id="score">0</b></div>
+  <button id="new">New game</button>
+</header>
+<div id="grid"></div>
+<div id="message"></div>
+<footer id="info">loading...</footer>
+<script>
+  // The page only draws the board and sends moves - the rules are in Python, on the server.
+  const COLORS = {2: "#eee4da", 4: "#ede0c8", 8: "#f2b179", 16: "#f59563", 32: "#f67c5f", 64: "#f65e3b",
+                  128: "#edcf72", 256: "#edcc61", 512: "#edc850", 1024: "#edc53f", 2048: "#edc22e"};
+  let game = null;
+
+  async function api(path, body) {
+    const response = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
+                                        body: JSON.stringify(body || {})});
+    return response.json();
+  }
+  function draw() {
+    const grid = document.getElementById("grid");
+    grid.style.gridTemplateColumns = `repeat(${game.board.length}, 80px)`;
+    grid.innerHTML = game.board.flat().map(v =>
+      `<div class="cell" style="background:${COLORS[v] || (v ? "#3c3a32" : "#cdc1b4")};color:${v > 4 ? "#fff" : "#776e65"}">${v || ""}</div>`
+    ).join("");
+    document.getElementById("score").textContent = game.score;
+    document.getElementById("message").textContent = game.won ? "You win!" : game.game_over ? "Game over" : "";
+  }
+  async function newGame() { game = await api("/api/new"); draw(); }
+  async function move(direction) {
+    if (!game || game.game_over) return;
+    game = await api("/api/move", {board: game.board, score: game.score, direction});
+    draw();
+  }
+
+  const KEYS = {ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down"};
+  document.addEventListener("keydown", e => { if (KEYS[e.key]) { e.preventDefault(); move(KEYS[e.key]); } });
+  let touch = null;
+  document.addEventListener("touchstart", e => { touch = e.touches[0]; });
+  document.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - touch.clientX, dy = e.changedTouches[0].clientY - touch.clientY;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > 30) move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+  });
+  document.getElementById("new").onclick = newGame;
+
+  // which version, which copy and which machine answered - asked again every second
+  async function info() {
+    try {
+      const [version, color, pod, node] = (await (await fetch("plain", {cache: "no-store"})).text()).trim().split(" ");
+      document.body.style.setProperty("--color", color);
+      document.getElementById("info").textContent = `${version}  ·  copy ${pod}  ·  machine ${node}`;
+    } catch (e) {
+      document.getElementById("info").textContent = "no answer from the server";
+    }
+  }
+  info(); setInterval(info, 1000);
+  newGame();
+</script>
+</body>
+</html>
