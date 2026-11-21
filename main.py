@@ -55,8 +55,8 @@ def make_move(request: Move):
 
 
 # Kubernetes asks this every second: "are you ready for players?"
-@app.get("/healthz", response_class=PlainTextResponse)
-def healthz():
+@app.get("/health", response_class=PlainTextResponse)
+def health():
     return "ok"
 
 

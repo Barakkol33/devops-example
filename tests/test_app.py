@@ -31,8 +31,8 @@ def test_a_bad_direction_is_rejected():
     assert response.status_code == 400
 
 
-def test_healthz():
-    assert client.get("/healthz").text == "ok"
+def test_health():
+    assert client.get("/health").text == "ok"
 
 
 def test_plain_says_which_version_answered():
